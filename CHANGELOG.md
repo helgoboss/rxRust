@@ -1,6 +1,18 @@
-## [Unreleased](https://github.com/rxRust/rxRust/compare/v0.7.2...HEAD)
+## [Unreleased](https://github.com/rxRust/rxRust/compare/v0.7.3...HEAD)
 
-## [0.7.2](https://github.com/rxRust/rxRust/releases/tag/v0.7.1)  (2019-12-12)
+### Features
+- **operator**: add `take_last` operator.
+
+### Refactor
+
+- **observable**: Observable split into many concrete type, not only use a Observable struct to wrap all, every observable creating function has a concrete type.
+
+### Breaking Changes
+
+- **observable**: remove `Observable::new`, and add a same `create` function in `observable` to replace it.
+- **observable**: Rename `Observable` to `ObservableFromFn`.
+
+## [0.7.2](https://github.com/rxRust/rxRust/releases/tag/v0.7.2)  (2020-01-09)
 
 ### Refactor
 

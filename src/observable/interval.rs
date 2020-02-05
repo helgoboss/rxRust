@@ -5,6 +5,7 @@ use crate::prelude::*;
 use futures::prelude::*;
 use futures::{future::RemoteHandle, task::SpawnExt};
 use futures_timer::Interval;
+use observable::ObservableFromFn;
 use std::time::{Duration, Instant};
 
 /// Creates an observable which will fire at `dur` time into the future,
@@ -34,7 +35,7 @@ where
   interval_observable_impl(move || Interval::new_at(at, dur))
 }
 
-pub type IntervalOp<F, Err> = SharedOp<Observable<F, usize, Err>>;
+pub type IntervalOp<F, Err> = SharedOp<ObservableFromFn<F, usize, Err>>;
 pub trait IntervalFnOnce<O> = FnOnce(Subscriber<O, SharedSubscription>) + Clone;
 
 fn interval_observable_impl<O, Err>(
@@ -44,22 +45,24 @@ where
   O: Observer<usize, Err> + Send + Sync + 'static,
   Err: 'static,
 {
-  Observable::new(move |mut subscriber: Subscriber<O, SharedSubscription>| {
-    let mut subscription = subscriber.subscription.clone();
-    let mut number = 0;
-    let f = build_interval().for_each(move |_| {
-      subscriber.next(number);
-      number += 1;
-      future::ready(())
-    });
-    let handle = DEFAULT_RUNTIME
-      .lock()
-      .unwrap()
-      .spawn_with_handle(f)
-      .expect("spawn future for an interval failed");
+  observable::create(
+    move |mut subscriber: Subscriber<O, SharedSubscription>| {
+      let mut subscription = subscriber.subscription.clone();
+      let mut number = 0;
+      let f = build_interval().for_each(move |_| {
+        subscriber.next(number);
+        number += 1;
+        future::ready(())
+      });
+      let handle = DEFAULT_RUNTIME
+        .lock()
+        .unwrap()
+        .spawn_with_handle(f)
+        .expect("spawn future for an interval failed");
 
-    subscription.add(SpawnHandle::new(handle));
-  })
+      subscription.add(SpawnHandle::new(handle));
+    },
+  )
   .to_shared()
 }
 
