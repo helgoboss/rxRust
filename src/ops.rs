@@ -39,6 +39,8 @@ pub use publish::Publish;
 pub mod filter_map;
 pub mod ref_count;
 pub use filter_map::FilterMap;
+pub mod take_until;
+pub use take_until::TakeUntil;
 
 use crate::prelude::*;
 pub struct SharedOp<T>(pub(crate) T);
