@@ -6,32 +6,6 @@ use crate::prelude::*;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-/// Emits only the first `count` values emitted by the source Observable.
-///
-/// `take_until` returns an Observable that emits only the first `count` values
-/// emitted by the source Observable. If the source emits fewer than `count`
-/// values then all of its values are emitted. After that, it completes,
-/// regardless if the source completes.
-///
-/// # Example
-/// Take the first 5 seconds of an infinite 1-second interval Observable
-///
-/// ```
-/// # use rxrust::{
-///   ops::{TakeUntil}, prelude::*,
-/// };
-///
-/// observable::from_iter(0..10).take_until(5).subscribe(|v| println!("{}", v));
-///
-
-/// // print logs:
-/// // 0
-/// // 1
-/// // 2
-/// // 3
-/// // 4
-/// ```
-///
 pub trait TakeUntil {
     fn take_until<T>(self, trigger: T) -> TakeUntilOp<Self, T>
         where
@@ -64,15 +38,15 @@ pub struct TakeUntilOp<S, T> {
 //  }
 //}
 
-impl<O, U, S, TS> RawSubscribable<Subscriber<O, U>> for TakeUntilOp<S, TS>
+impl<O, U, S, TS> Observable<O, U> for TakeUntilOp<S, TS>
     where
-        S: RawSubscribable<Subscriber<TakeUntilObserver<O>, U>>,
+        S: Observable<TakeUntilObserver<O>, U>,
         U: SubscriptionLike + Clone + 'static,
-        TS: RawSubscribable<Subscriber<TakeUntilTriggerObserver<O, U>, U>>,
+        TS: Observable<TakeUntilTriggerObserver<O, U>, U>,
 
 {
     type Unsub = S::Unsub;
-    fn raw_subscribe(self, subscriber: Subscriber<O, U>) -> Self::Unsub {
+    fn actual_subscribe(self, subscriber: Subscriber<O, U>) -> Self::Unsub {
         // We need to keep a reference to the observer from two places
         // TODO Would it be better to make one of them a weak pointer?
         let shared_observer = Rc::new(RefCell::new(subscriber.observer));
@@ -89,8 +63,8 @@ impl<O, U, S, TS> RawSubscribable<Subscriber<O, U>> for TakeUntilOp<S, TS>
             },
             subscription: subscriber.subscription,
         };
-        self.trigger.raw_subscribe(trigger_subscriber);
-        self.source.raw_subscribe(main_subscriber)
+        self.trigger.actual_subscribe(trigger_subscriber);
+        self.source.actual_subscribe(main_subscriber)
     }
 }
 

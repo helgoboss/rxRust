@@ -161,6 +161,23 @@ mod test {
   use crate::prelude::*;
   use std::sync::{Arc, Mutex};
 
+  fn create_my_observable<O, U>() -> impl Observable<O, U>
+    where
+        O: Observer<i32, ()>,
+        U: SubscriptionLike + Clone + 'static
+  {
+    observable::create(|mut subscriber| {
+      subscriber.next(1);
+      subscriber.next(2);
+      subscriber.complete();
+    })
+  }
+
+  #[test]
+  fn sandbox() {
+    create_my_observable().subscribe(|i| println!("{}", i));
+  }
+
   #[test]
   fn proxy_call() {
     let next = Arc::new(Mutex::new(0));
