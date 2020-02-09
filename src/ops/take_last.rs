@@ -4,51 +4,10 @@ use crate::prelude::*;
 use std::collections::VecDeque;
 use std::marker::PhantomData;
 
-/// Emits only the last `count` values emitted by the source Observable.
-///
-/// `take_last` returns an Observable that emits only the last `count` values
-/// emitted by the source Observable. If the source emits fewer than `count`
-/// values then all of its values are emitted.
-/// It will not emit values until source Observable complete.
-///
-/// # Example
-/// Take the last 5 seconds of an infinite 1-second interval Observable
-///
-/// ```
-/// # use rxrust::{
-///   ops::{TakeLast}, prelude::*,
-/// };
-///
-/// observable::from_iter(0..10).take_last(5).subscribe(|v| println!("{}", v));
-///
-
-/// // print logs:
-/// // 5
-/// // 6
-/// // 7
-/// // 8
-/// // 9
-/// ```
-///
-pub trait TakeLast<Item> {
-  fn take_last(self, count: usize) -> TakeLastOp<Self, Item>
-  where
-    Self: Sized,
-  {
-    TakeLastOp {
-      source: self,
-      count,
-      _p: PhantomData,
-    }
-  }
-}
-
-impl<O, Item> TakeLast<Item> for O {}
-
 pub struct TakeLastOp<S, Item> {
-  source: S,
-  count: usize,
-  _p: PhantomData<Item>,
+  pub(crate) source: S,
+  pub(crate) count: usize,
+  pub(crate) _p: PhantomData<Item>,
 }
 
 impl<S, Item> IntoShared for TakeLastOp<S, Item>
@@ -154,7 +113,6 @@ where
 
 #[cfg(test)]
 mod test {
-  use super::TakeLast;
   use crate::prelude::*;
 
   #[test]
