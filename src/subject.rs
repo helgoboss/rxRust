@@ -13,7 +13,7 @@ pub struct Subject<O, S> {
   pub(crate) subscription: S,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct SubjectValue<T>(T);
 
 pub struct SubjectMutRefValue<T>(*mut T);
@@ -109,7 +109,7 @@ macro local_subject_raw_subscribe_impl($o: ident,$u: ident) {
   }
 }
 
-impl<'a, Item: Copy, Err: Copy, O, U> RawSubscribable<Subscriber<O, U>>
+impl<'a, Item: Clone, Err: Clone, O, U> RawSubscribable<Subscriber<O, U>>
   for LocalSubject<'a, SubjectValue<Item>, SubjectValue<Err>>
 where
   O: Observer<Item, Err> + 'a,
@@ -118,7 +118,7 @@ where
   local_subject_raw_subscribe_impl!(O, U);
 }
 
-impl<'a, Item, Err: Copy, O, U> RawSubscribable<Subscriber<O, U>>
+impl<'a, Item, Err: Clone, O, U> RawSubscribable<Subscriber<O, U>>
   for LocalSubject<'a, SubjectMutRefValue<Item>, SubjectValue<Err>>
 where
   O: for<'r> Observer<&'r mut Item, Err> + 'a,
@@ -127,7 +127,7 @@ where
   local_subject_raw_subscribe_impl!(O, U);
 }
 
-impl<'a, Item: Copy, Err, O, U> RawSubscribable<Subscriber<O, U>>
+impl<'a, Item: Clone, Err, O, U> RawSubscribable<Subscriber<O, U>>
   for LocalSubject<'a, SubjectValue<Item>, SubjectMutRefValue<Err>>
 where
   O: for<'r> Observer<Item, &'r mut Err> + 'a,
@@ -185,12 +185,12 @@ where
 
 impl<Item, T> ObserverNext<Item> for Vec<T>
 where
-  Item: Copy,
+  Item: Clone,
   T: ObserverNext<Item> + SubscriptionLike,
 {
   fn next(&mut self, value: Item) {
     self.drain_filter(|subscriber| {
-      subscriber.next(value);
+      subscriber.next(value.clone());
       subscriber.is_closed()
     });
   }
@@ -198,12 +198,12 @@ where
 
 impl<Err, T> ObserverError<Err> for Vec<T>
 where
-  Err: Copy,
+  Err: Clone,
   T: ObserverError<Err> + SubscriptionLike,
 {
   fn error(&mut self, err: Err) {
     self.iter_mut().for_each(|subscriber| {
-      subscriber.error(err);
+      subscriber.error(err.clone());
     });
     self.clear();
   }
@@ -283,11 +283,11 @@ where
   fn inner_addr(&self) -> *const () { self.0.inner_addr() }
 }
 
-impl<'a, Item: Copy, Err> ObserverNext<Item>
+impl<'a, Item: Clone, Err> ObserverNext<Item>
   for LocalSubjectObserver<'a, SubjectValue<Item>, Err>
 {
   #[inline]
-  fn next(&mut self, value: Item) { self.0.next(SubjectValue(value)) }
+  fn next(&mut self, value: Item) { self.0.next(SubjectValue(value).clone()) }
 }
 
 impl<'a, Item, Err> ObserverNext<&mut Item>
@@ -299,7 +299,7 @@ impl<'a, Item, Err> ObserverNext<&mut Item>
   }
 }
 
-impl<'a, Item, Err: Copy> ObserverError<Err>
+impl<'a, Item, Err: Clone> ObserverError<Err>
   for LocalSubjectObserver<'a, Item, SubjectValue<Err>>
 {
   #[inline]
