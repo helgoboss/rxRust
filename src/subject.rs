@@ -365,6 +365,47 @@ where
 mod test {
   use super::*;
   use crate::ops::FilterMap;
+  use std::borrow::Cow;
+
+  #[test]
+  fn emit_ref_cow() {
+    // emit ref
+    let mut subject: LocalSubject<'_, SubjectValue<Cow<str>>, ()> = Subject::local();
+    let bla_moved = {
+      let owned = String::from("my text");
+      let borrowed = owned.as_str();
+      let bla = Cow::from(borrowed);
+//      subject.next(bla);
+      bla.into_owned()
+      // We don't need a Cow to achieve that. Just ToOwned.
+      // So if buffer requires ToOwned and automatically calls to_owned() on a reference, lots
+      // of things are happening implicitly.
+      // Maybe we should make this explicit by using a map before!
+    };
+//    let owned2 = String::from("my longer-living text");
+//    let borrowed2 = owned2.as_str();
+//    let bla2 = Cow::from(borrowed2);
+//    subject.next(bla2);
+  }
+
+
+  #[test]
+  fn emit_ref_cow_2() {
+    // emit ref
+//    let mut subject: LocalSubject<'_, SubjectMutRefValue<String>, SubjectValue<()>> = Subject::local();
+    let mut subject = Subject::local();
+    subject.fork()
+        .subscribe(|v: &mut String| {
+      println!("{:?}", v);
+    });
+//    {
+//      let mut owned = String::from("my text");
+//      subject.next(&mut owned);
+//    }
+    let mut owned2 = String::from("my text 2");
+    subject.next(&mut owned2);
+//    let bla: () = subject;
+  }
 
   #[test]
   fn emit_ref() {
