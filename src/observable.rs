@@ -36,6 +36,7 @@ use crate::prelude::*;
 pub use observable_comp::*;
 
 use crate::ops::default_if_empty::DefaultIfEmptyOp;
+use crate::ops::switch_on_next::SwitchOnNextOp;
 use ops::{
   box_it::{BoxOp, IntoBox},
   delay::DelayOp,
@@ -925,6 +926,18 @@ pub trait Observable {
     SubscribeOnOP {
       source: self,
       scheduler,
+    }
+  }
+
+  #[inline]
+  fn switch_on_next<'a, InnerItem>(self) -> SwitchOnNextOp<Self, InnerItem>
+  where
+    Self: Sized,
+    Self::Item: LocalObservable<'a, Item = InnerItem, Err = ()>,
+  {
+    SwitchOnNextOp {
+      source: self,
+      p: PhantomData,
     }
   }
 
