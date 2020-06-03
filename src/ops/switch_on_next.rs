@@ -22,7 +22,7 @@ where
 impl<'a, SourceObservable, InnerObservable, InnerItem> LocalObservable<'a>
   for SwitchOnNextOp<SourceObservable, InnerItem>
 where
-  SourceObservable: LocalObservable<'a, Item = InnerObservable> + 'a,
+  SourceObservable: LocalObservable<'a, Item = InnerObservable, Err = ()> + 'a,
   InnerObservable: LocalObservable<'a, Item = InnerItem, Err = ()> + 'a,
 {
   type Unsub = LocalSubscription;
@@ -51,9 +51,9 @@ where
 }
 
 #[derive(Clone)]
-pub struct SwitchOnNextObserver<O, Unsub> {
+pub struct SwitchOnNextObserver<O> {
   observer: Rc<RefCell<O>>,
-  subscription: Unsub,
+  subscription: LocalSubscription,
   inner_subscription: LocalSubscription,
   one_is_complete: Rc<Cell<bool>>,
 }
@@ -82,11 +82,9 @@ where
 }
 
 // TODO Is `Item` bound correct or too restrictive?
-impl<'a, Item, Err, InnerItem, O, Unsub> Observer<Item, Err>
-  for SwitchOnNextObserver<O, Unsub>
+impl<'a, Item, InnerItem, O> Observer<Item, ()> for SwitchOnNextObserver<O>
 where
   O: Observer<InnerItem, ()> + 'a,
-  Unsub: SubscriptionLike,
   Item: LocalObservable<'a, Item = InnerItem, Err = ()>,
 {
   #[inline]
@@ -96,6 +94,8 @@ where
     // Create a new inner subscription
     let inner_subscription = LocalSubscription::default();
     self.inner_subscription = inner_subscription.clone();
+    // Make the inner subscription end when the outer one ends
+    self.subscription.add(inner_subscription.clone());
     // Reset completion
     self.one_is_complete.set(false);
     // Subscribe
@@ -109,9 +109,9 @@ where
   }
 
   #[inline]
-  fn error(&mut self, err: Err) {
-    // TODO Unsubscribe inner observable and emit error
-    // self.observer.error(err);
+  fn error(&mut self, err: ()) {
+    self.inner_subscription.unsubscribe();
+    self.observer.error(err);
   }
 
   #[inline]
@@ -171,6 +171,47 @@ mod test {
     subject_a.next("a3");
     subject_a.complete();
     subject_b.next("b1");
+    subject_b.next("b2");
+    subject_b.complete();
+    subject_c.next("c1");
+    // c
+    subject.next("c");
+    subject_c.next("c2");
+    subject.complete();
+    subject_c.next("c3");
+    subject_c.complete();
+  }
+
+  #[test]
+  fn unsubscribe_details() {
+    let mut subject: LocalSubject<_, ()> = LocalSubject::new();
+    let mut subject_a: LocalSubject<_, ()> = LocalSubject::new();
+    let mut subject_a_clone = subject_a.clone();
+    let mut subject_b: LocalSubject<_, ()> = LocalSubject::new();
+    let mut subject_b_clone = subject_b.clone();
+    let mut subject_c: LocalSubject<_, ()> = LocalSubject::new();
+    let mut subject_c_clone = subject_c.clone();
+    let ranges = subject.clone().map(move |i| match i {
+      "a" => subject_a_clone.clone(),
+      "b" => subject_b_clone.clone(),
+      _ => subject_c_clone.clone(),
+    });
+    let mut subscription = ranges.switch_on_next().subscribe_complete(
+      |i| {
+        println!("{}", i);
+      },
+      || println!("complete"),
+    );
+    // a
+    subject.next("a");
+    subject_a.next("a1");
+    subject_a.next("a2");
+    // b
+    subject.next("b");
+    subject_a.next("a3");
+    subject_a.complete();
+    subject_b.next("b1");
+    subscription.unsubscribe();
     subject_b.next("b2");
     subject_b.complete();
     subject_c.next("c1");
