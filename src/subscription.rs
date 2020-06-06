@@ -1,6 +1,8 @@
 use crate::prelude::*;
+use smallvec::alloc::fmt::Formatter;
 use smallvec::SmallVec;
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
@@ -16,7 +18,7 @@ pub trait SubscriptionLike {
   fn inner_addr(&self) -> *const ();
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct LocalSubscription(Rc<RefCell<Inner<Box<dyn SubscriptionLike>>>>);
 
 #[doc(hidden)]
@@ -85,7 +87,7 @@ impl SubscriptionLike for LocalSubscription {
   fn inner_addr(&self) -> *const () { self.0.as_ptr() as *const () }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct SharedSubscription(
   Arc<Mutex<Inner<Box<dyn SubscriptionLike + Send + Sync>>>>,
 );
@@ -134,6 +136,15 @@ impl<Item, Err, T> Publisher<Item, Err> for T where
 struct Inner<T> {
   closed: bool,
   teardown: SmallVec<[T; 1]>,
+}
+
+impl<T> Debug for Inner<T> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Inner")
+      .field("closed", &self.closed)
+      .field("teardown_count", &self.teardown.len())
+      .finish()
+  }
 }
 
 impl<T: SubscriptionLike> Inner<T> {
