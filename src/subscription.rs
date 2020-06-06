@@ -225,6 +225,7 @@ subscription_proxy_impl!(SubscriptionWrapper<T>, { 0 }, T);
 /// attribute
 ///
 /// If you want to drop it immediately, wrap it in it's own scope
+#[derive(Debug)]
 #[must_use]
 pub struct SubscriptionGuard<T: SubscriptionLike>(pub(crate) T);
 impl<T: SubscriptionLike> Drop for SubscriptionGuard<T> {
