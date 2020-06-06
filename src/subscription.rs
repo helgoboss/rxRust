@@ -18,6 +18,14 @@ pub trait SubscriptionLike {
   fn inner_addr(&self) -> *const ();
 }
 
+impl Debug for Box<dyn SubscriptionLike> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Box<dyn SubscriptionLike>")
+      .field("is_closed", &self.is_closed())
+      .finish()
+  }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct LocalSubscription(Rc<RefCell<Inner<Box<dyn SubscriptionLike>>>>);
 
