@@ -1,4 +1,4 @@
-use crate::observer::{complete_proxy_impl, error_proxy_impl};
+use crate::observer::{complete_proxy_impl, error_proxy_impl, next_proxy_impl};
 use crate::prelude::*;
 
 #[derive(Clone)]
@@ -27,7 +27,7 @@ where
     self,
     subscriber: Subscriber<O, LocalSubscription>,
   ) -> Self::Unsub {
-    let mut subscription = LocalSubscription::default();
+    let mut subscription = subscriber.subscription.clone();
     subscription.add(self.source.actual_subscribe(subscriber));
     subscription.add(Finalizer {
       s: LocalSubscription::default(),
