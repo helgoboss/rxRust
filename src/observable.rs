@@ -36,6 +36,7 @@ use crate::prelude::*;
 pub use observable_comp::*;
 
 use crate::ops::default_if_empty::DefaultIfEmptyOp;
+use crate::ops::finalize::FinalizeOp;
 use crate::ops::switch_on_next::SwitchOnNextOp;
 use ops::{
   box_it::{BoxOp, IntoBox},
@@ -146,6 +147,19 @@ pub trait Observable {
       source: self,
       default: None,
       last: None,
+    }
+  }
+
+  /// TODO
+  #[inline]
+  fn finalize<F>(self, f: F) -> FinalizeOp<Self, F>
+  where
+    Self: Sized,
+    F: Fn(),
+  {
+    FinalizeOp {
+      source: self,
+      func: f,
     }
   }
 
