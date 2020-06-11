@@ -246,7 +246,7 @@ subscription_proxy_impl!(SubscriptionWrapper<T>, { 0 }, T);
 /// If you want to drop it immediately, wrap it in it's own scope
 #[derive(Debug)]
 #[must_use]
-pub struct SubscriptionGuard<T: SubscriptionLike>(pub(crate) T);
+pub struct SubscriptionGuard<T: SubscriptionLike>(pub T);
 impl<T: SubscriptionLike> Drop for SubscriptionGuard<T> {
   #[inline]
   fn drop(&mut self) { self.0.unsubscribe() }
