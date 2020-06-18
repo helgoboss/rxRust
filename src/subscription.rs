@@ -249,6 +249,13 @@ subscription_proxy_impl!(SubscriptionWrapper<T>, { 0 }, T);
 #[derive(Debug)]
 #[must_use]
 pub struct SubscriptionGuard<T: SubscriptionLike>(pub(crate) T);
+
+impl<T: SubscriptionLike> SubscriptionGuard<T> {
+  pub fn new(subscription: T) -> SubscriptionGuard<T> {
+    SubscriptionGuard(subscription)
+  }
+}
+
 impl<T: SubscriptionLike> Drop for SubscriptionGuard<T> {
   #[inline]
   fn drop(&mut self) { self.0.unsubscribe() }
