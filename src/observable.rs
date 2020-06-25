@@ -36,12 +36,12 @@ use crate::prelude::*;
 pub use observable_comp::*;
 
 use crate::ops::default_if_empty::DefaultIfEmptyOp;
-use crate::ops::finalize::FinalizeOp;
 use crate::ops::switch_on_next::SwitchOnNextOp;
 use ops::{
   box_it::{BoxOp, IntoBox},
   delay::DelayOp,
   filter::FilterOp,
+  finalize::FinalizeOp,
   first::FirstOrOp,
   last::LastOrOp,
   map::MapOp,
@@ -150,12 +150,12 @@ pub trait Observable {
     }
   }
 
-  /// TODO
+  /// Call a function when observable completes, errors or is unsubscribed from.
   #[inline]
   fn finalize<F>(self, f: F) -> FinalizeOp<Self, F>
   where
     Self: Sized,
-    F: Fn(),
+    F: FnMut(),
   {
     FinalizeOp {
       source: self,
