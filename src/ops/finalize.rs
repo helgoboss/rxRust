@@ -16,6 +16,22 @@ where
   type Err = S::Err;
 }
 
+#[doc(hidden)]
+macro observable_impl($subscription:ty, $($marker:ident +)* $lf: lifetime) {
+  fn actual_subscribe<O: Observer<Self::Item, Self::Err> + $($marker +)* $lf>(
+    self,
+    subscriber: Subscriber<O, $subscription>,
+  ) -> Self::Unsub {
+    let mut subscription = subscriber.subscription.clone();
+    subscription.add(self.source.actual_subscribe(subscriber));
+    subscription.add(Finalizer {
+    s: <$subscription>::default(),
+    f: self.func,
+    });
+    subscription
+  }
+}
+
 impl<'a, S, F> LocalObservable<'a> for FinalizeOp<S, F>
 where
   S: LocalObservable<'a>,
@@ -23,27 +39,28 @@ where
 {
   type Unsub = LocalSubscription;
 
-  fn actual_subscribe<O: Observer<Self::Item, Self::Err> + 'a>(
-    self,
-    subscriber: Subscriber<O, LocalSubscription>,
-  ) -> Self::Unsub {
-    let mut subscription = subscriber.subscription.clone();
-    subscription.add(self.source.actual_subscribe(subscriber));
-    subscription.add(Finalizer {
-      s: LocalSubscription::default(),
-      f: self.func,
-    });
-    subscription
-  }
+  observable_impl!(LocalSubscription, 'a);
 }
 
-struct Finalizer<F> {
-  s: LocalSubscription,
+impl<S, F> SharedObservable for FinalizeOp<S, F>
+where
+  S: SharedObservable,
+  F: FnMut() + Send + Sync + 'static,
+  S::Unsub: Send + Sync,
+{
+  type Unsub = SharedSubscription;
+
+  observable_impl!(SharedSubscription, Send + Sync + 'static);
+}
+
+struct Finalizer<Sub, F> {
+  s: Sub,
   f: F,
 }
 
-impl<F> SubscriptionLike for Finalizer<F>
+impl<Sub, F> SubscriptionLike for Finalizer<Sub, F>
 where
+  Sub: SubscriptionLike,
   F: FnMut(),
 {
   fn unsubscribe(&mut self) {
@@ -61,6 +78,7 @@ mod test {
   use crate::prelude::*;
   use std::cell::Cell;
   use std::rc::Rc;
+  use std::sync::{Arc, Mutex};
 
   #[test]
   fn finalize_on_complete_simple() {
@@ -162,5 +180,25 @@ mod test {
     subscription.unsubscribe();
     // Then
     assert_eq!(finalize_count.get(), 1);
+  }
+
+  #[test]
+  fn finalize_shared() {
+    // Given
+    let finalized = Arc::new(Mutex::new(false));
+    let mut s = SharedSubject::new();
+    // When
+    let finalized_clone = finalized.clone();
+    let mut subscription = s
+      .clone()
+      .to_shared()
+      .finalize(move || *finalized_clone.lock().unwrap() = true)
+      .to_shared()
+      .subscribe(|_| ());
+    s.next(1);
+    s.next(2);
+    subscription.unsubscribe();
+    // Then
+    assert!(*finalized.lock().unwrap());
   }
 }
