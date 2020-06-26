@@ -125,25 +125,88 @@ where
 #[cfg(test)]
 mod test {
   use crate::prelude::*;
+  use std::cell::RefCell;
+  use std::rc::Rc;
+
+  #[derive(Eq, PartialEq, Debug)]
+  enum Event<Item, Err> {
+    Next(Item),
+    Error(Err),
+    Complete,
+  }
+
+  #[derive(Default)]
+  struct EventBuffer<Item, Err> {
+    buffer: RefCell<Vec<Event<Item, Err>>>,
+  }
+
+  impl<Item, Err> EventBuffer<Item, Err> {
+    fn next(&self, item: Item) {
+      self.buffer.borrow_mut().push(Event::Next(item));
+    }
+
+    fn error(&self, err: Err) {
+      self.buffer.borrow_mut().push(Event::Error(err));
+    }
+
+    fn complete(&self) { self.buffer.borrow_mut().push(Event::Complete); }
+
+    /// Empties buffer and returns current content.
+    fn pop(&self) -> Vec<Event<Item, Err>> {
+      self.buffer.replace(Default::default())
+    }
+  }
 
   #[test]
   fn base_function() {
-    let mut subject: LocalSubject<i32, ()> = LocalSubject::new();
-    let ranges = subject.clone().map(|i| observable::from_iter(i..(i + 3)));
-    ranges.switch_on_next().subscribe_complete(
-      |i| {
-        println!("{}", i);
-      },
-      || println!("complete"),
-    );
-    subject.next(0);
-    subject.next(10);
-    subject.next(100);
-    subject.complete();
+    // Given
+    let buffer: Rc<EventBuffer<i32, ()>> = Default::default();
+    let mut s = LocalSubject::new();
+    let ranges = s.clone().map(|i| observable::from_iter(i..(i + 3)));
+    // When
+    let bc1 = buffer.clone();
+    let bc2 = buffer.clone();
+    ranges
+      .switch_on_next()
+      .subscribe_complete(move |i| bc1.next(i), move || bc2.complete());
+    // Then
+    use Event::*;
+    s.next(0);
+    assert_eq!(buffer.pop().as_slice(), &[Next(0), Next(1), Next(2)]);
+    s.next(10);
+    assert_eq!(buffer.pop().as_slice(), &[Next(10), Next(11), Next(12)]);
+    s.next(100);
+    assert_eq!(buffer.pop().as_slice(), &[Next(100), Next(101), Next(102)]);
+    s.complete();
+    assert_eq!(buffer.pop().as_slice(), &[Complete]);
   }
 
   #[test]
   fn completion_details() {
+    // Given
+    let buffer: Rc<EventBuffer<i32, ()>> = Default::default();
+    let mut s = LocalSubject::new();
+    let ranges = s.clone().map(|i| observable::from_iter(i..(i + 3)));
+    // When
+    let bc1 = buffer.clone();
+    let bc2 = buffer.clone();
+    ranges
+      .switch_on_next()
+      .subscribe_complete(move |i| bc1.next(i), move || bc2.complete());
+    // Then
+    use Event::*;
+    s.next(0);
+    assert_eq!(buffer.pop().as_slice(), &[Next(0), Next(1), Next(2)]);
+    s.next(10);
+    assert_eq!(buffer.pop().as_slice(), &[Next(10), Next(11), Next(12)]);
+    s.next(100);
+    assert_eq!(buffer.pop().as_slice(), &[Next(100), Next(101), Next(102)]);
+    s.complete();
+    assert_eq!(buffer.pop().as_slice(), &[Complete]);
+  }
+
+  #[test]
+  fn completion_details_old() {
     let mut subject: LocalSubject<_, ()> = LocalSubject::new();
     let mut subject_a: LocalSubject<_, ()> = LocalSubject::new();
     let mut subject_a_clone = subject_a.clone();
@@ -222,66 +285,4 @@ mod test {
     subject_c.next("c3");
     subject_c.complete();
   }
-
-  // #[test]
-  // fn base_function() {
-  //   let mut last_next_arg = None;
-  //   let mut next_count = 0;
-  //   let mut completed_count = 0;
-  //   {
-  //     let mut notifier = Subject::new();
-  //     let mut source = Subject::new();
-  //     source
-  //       .clone()
-  //       .take_until(notifier.clone())
-  //       .subscribe_complete(
-  //         |i| {
-  //           last_next_arg = Some(i);
-  //           next_count += 1;
-  //         },
-  //         || {
-  //           completed_count += 1;
-  //         },
-  //       );
-  //     source.next(5);
-  //     notifier.next(());
-  //     source.next(6);
-  //     notifier.complete();
-  //     source.complete();
-  //   }
-  //   assert_eq!(next_count, 1);
-  //   assert_eq!(last_next_arg, Some(5));
-  //   assert_eq!(completed_count, 1);
-  // }
-  //
-  // #[test]
-  // fn into_shared() {
-  //   let last_next_arg = Arc::new(Mutex::new(None));
-  //   let last_next_arg_mirror = last_next_arg.clone();
-  //   let next_count = Arc::new(Mutex::new(0));
-  //   let next_count_mirror = next_count.clone();
-  //   let completed_count = Arc::new(Mutex::new(0));
-  //   let completed_count_mirror = completed_count.clone();
-  //   let mut notifier = Subject::new();
-  //   let mut source = Subject::new();
-  //   source
-  //     .clone()
-  //     .take_until(notifier.clone())
-  //     .to_shared()
-  //     .subscribe_complete(
-  //       move |i| {
-  //         *last_next_arg.lock().unwrap() = Some(i);
-  //         *next_count.lock().unwrap() += 1;
-  //       },
-  //       move || {
-  //         *completed_count.lock().unwrap() += 1;
-  //       },
-  //     );
-  //   source.next(5);
-  //   notifier.next(());
-  //   source.next(6);
-  //   assert_eq!(*next_count_mirror.lock().unwrap(), 1);
-  //   assert_eq!(*last_next_arg_mirror.lock().unwrap(), Some(5));
-  //   assert_eq!(*completed_count_mirror.lock().unwrap(), 1);
-  // }
 }
